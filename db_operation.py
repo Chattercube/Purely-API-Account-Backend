@@ -35,6 +35,40 @@ def get_inventory(con:sqlite3.Connection, user_id:str):
 
     return json.loads(inventory_query_object[0])
 
+def get_json(con:sqlite3.Connection, table:str, column:str, user_id:str):
+    cur = con.cursor()
+    inventory_query_object = cur.execute(f"SELECT {column} FROM {table} WHERE user_id = ?", (user_id,)).fetchone()
+
+    if inventory_query_object is None:
+        return None
+
+    return json.loads(inventory_query_object[0])
+
+def set_json(con:sqlite3.Connection, table:str, column:str, user_id:str, new_json:json, do_commit:bool = True):
+    cur = con.cursor()
+    cur.execute(f"UPDATE {table} SET {column} = json(?) WHERE user_id = ?" , (column, json.dumps(new_json),user_id))
+    if do_commit:
+        con.commit()
+
+def set_json_jsonfield(con:sqlite3.Connection, table:str, column:str, field:str, user_id:str, value:json, do_commit:bool = True):
+    cur = con.cursor()
+    cur.execute(f"UPDATE {table} SET {column} = json_set({column}, '$.{field}', json(?)) WHERE user_id = ?" , (json.dumps(value),user_id))
+    if do_commit:
+        con.commit()
+
+def set_json_field(con:sqlite3.Connection, table:str, column:str, field:str, user_id:str, value, do_commit:bool = True):
+    cur = con.cursor()
+    cur.execute(f"UPDATE {table} SET {column} = json_set({column}, '$.{field}', ?) WHERE user_id = ?" , (value,user_id))
+    if do_commit:
+        con.commit()
+
+def delete_json_field(con:sqlite3.Connection, table:str, column:str, field:str, user_id:str, do_commit:bool = True):
+    cur = con.cursor()
+    cur.execute(f"UPDATE {table} SET {column} = json_remove({column}, '$.{field}') WHERE user_id = ?" , (user_id,))
+    if do_commit:
+        con.commit()
+
+
 def get_quantity_of_inventory_item(con:sqlite3.Connection, user_id:str, id:str):
 
     body = get_inventory(con, user_id)['body']
@@ -64,7 +98,6 @@ def set_quantity_of_inventory_item(con:sqlite3.Connection, user_id:str, id:str, 
     set_inventory(con, user_id, body, do_commit)
 
     
-
 
 
 def user_operation(con:sqlite3.Connection, session_id:str, operation_code:str, data:json):
