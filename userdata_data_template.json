@@ -1,0 +1,8 @@
+{
+    "status" : "string",
+    "blurb" : "string",
+
+    "last_online" : "date",
+    "join_date" : "date"
+
+}
