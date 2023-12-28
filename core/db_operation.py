@@ -6,9 +6,10 @@ import sqlite3
 from os.path import exists
 from dotenv import dotenv_values
 import uuid
-import db_accounts
-
 import json
+
+from . import db_accounts
+
 
 DATA_TEMPLATE = json.load(open("json_templates/userdata_data_template.json","r"))
 INVENTORY_TEMPLATE = json.load(open("json_templates/userdata_inventory_template.json","r"))

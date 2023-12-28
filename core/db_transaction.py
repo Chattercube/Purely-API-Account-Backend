@@ -1,6 +1,5 @@
 import sqlite3
-import db_operation
-import db_accounts
+from . import db_operation
 
 class ItemQuant:
     def __init__(self, id:str, quantity:int) -> None:

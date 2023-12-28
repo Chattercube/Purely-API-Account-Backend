@@ -3,10 +3,9 @@ from random import randint, choice
 from datetime import datetime
 from datetime import timedelta
 import sqlite3
-from os.path import exists
 from dotenv import dotenv_values
 import uuid
-from my_response import ResponseState, SimpleResponse
+from .my_response import ResponseState, SimpleResponse
 
 # Store data in hex_bytes or bytes
 HEX_BYTES = False
@@ -21,10 +20,10 @@ def create_database(filename:str) -> SimpleResponse:
 
     try:
         with open(ACCOUNT_TEMPLATE_PATH,"r") as script:
-            cur.execute(script)
+            cur.executescript(script.read())
 
         with open(USER_TEMPLATE_PATH,"r") as script:
-            cur.execute(script)
+            cur.executescript(script.read())
 
         return SimpleResponse(ResponseState.SUCCESS)
     
@@ -89,8 +88,13 @@ def validate_session(con:sqlite3.Connection, session_id:str) -> SimpleResponse:
     
     return SimpleResponse(ResponseState.SUCCESS)
 
-def get_user_by_session_id(con:sqlite3.Connection, session_id:str) -> SimpleResponse:
+def get_user_by_session_id(con:sqlite3.Connection, session_id:str, hex:bool = False) -> SimpleResponse:
+    print(session_id)
     cur = con.cursor()
+
+    if hex:
+        session_id = bytes.fromhex(session_id)
+
     session_query_result = cur.execute("SELECT * FROM Sessions WHERE session_id = ?", (session_id,)).fetchone()
 
     if session_query_result is None:
@@ -169,7 +173,7 @@ def delete_expired_email_verify(con:sqlite3.Connection):
     cur.execute("DELETE FROM EmailVerify WHERE creation_time <= ?", (datetime.now() - timedelta(seconds=EMAIL_VERIFY_CLEANUP_DURATION),))
     con.commit()
 
-def login_by_username(con:sqlite3.Connection, username:str, password:str):
+def login_by_username(con:sqlite3.Connection, username:str, password:str, hex:bool = False):
     
     cur = con.cursor()
 
@@ -206,7 +210,10 @@ def login_by_username(con:sqlite3.Connection, username:str, password:str):
     cur.execute("INSERT INTO Sessions VALUES(?, ?, ?)", (session_id, int(user_query_result[0]), datetime.now()))
     con.commit()
 
-    return SimpleResponse(ResponseState.SUCCESS, None, session_id)
+    if hex:
+        return SimpleResponse(ResponseState.SUCCESS, None, session_id.hex())
+    else:
+        return SimpleResponse(ResponseState.SUCCESS, None, session_id)
 
 def logout_session(con:sqlite3.Connection, session_id:str):
     cur = con.cursor()
