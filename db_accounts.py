@@ -6,6 +6,7 @@ import sqlite3
 from os.path import exists
 from dotenv import dotenv_values
 import uuid
+from my_response import ResponseState, SimpleResponse
 
 # Store data in hex_bytes or bytes
 HEX_BYTES = False
@@ -13,33 +14,40 @@ HEX_BYTES = False
 ACCOUNT_TEMPLATE_PATH = "sql_scripts/create_accounts_tables.sql"
 USER_TEMPLATE_PATH = "sql_scripts/create_user_tables.sql"
 
-def create_database(filename:str):
+def create_database(filename:str) -> SimpleResponse:
 
     con = sqlite3.connect(filename)
     cur = con.cursor()
 
-    with open(ACCOUNT_TEMPLATE_PATH,"r") as script:
-        cur.execute(script)
+    try:
+        with open(ACCOUNT_TEMPLATE_PATH,"r") as script:
+            cur.execute(script)
 
-    with open(USER_TEMPLATE_PATH,"r") as script:
-        cur.execute(script)
+        with open(USER_TEMPLATE_PATH,"r") as script:
+            cur.execute(script)
+
+        return SimpleResponse(ResponseState.SUCCESS)
+    
+    except Exception as ex:
+
+        return SimpleResponse(ResponseState.FAILURE, None, ex)
 
 
-def generate_random_alphanum(length:int):
+def generate_random_alphanum(length:int) -> str:
 
     alphanum = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
     return ''.join(choice(alphanum) for i in range(length))
 
 
 
-def generate_email_code(con:sqlite3.Connection, email:str):
+def generate_email_code(con:sqlite3.Connection, email:str) -> SimpleResponse:
     code = randint(100000, 999999)
     data = (email, code, datetime.now())
     con.cursor().execute("INSERT OR REPLACE INTO EmailVerify VALUES(?, ?, ?)", data)
     con.commit()
-    return code
+    return SimpleResponse(ResponseState.SUCCESS, None, code)
 
-def validate_email(con:sqlite3.Connection, email:str, code:str):
+def validate_email(con:sqlite3.Connection, email:str, code:str) -> SimpleResponse:
     cur = con.cursor()
     code_query = cur.execute("SELECT * FROM EmailVerify WHERE email = ? AND code = ?",(email, code))
 
@@ -47,7 +55,7 @@ def validate_email(con:sqlite3.Connection, email:str, code:str):
 
     if result is None:
         print("Error: Email is not verified")
-        return False
+        return SimpleResponse(ResponseState.FAILURE, "EMAIL_NOT_VERIFIED")
     
     cur.execute("DELETE FROM EmailVerify WHERE email = ?", (email,))
     con.commit()
@@ -58,18 +66,18 @@ def validate_email(con:sqlite3.Connection, email:str, code:str):
 
     if seconds_from_expiry > expiry_duration:
         print("Error: Code expired")
-        return False
+        return SimpleResponse(ResponseState.FAILURE, "CODE_EXPIRED")
     
-    return True
+    return SimpleResponse(ResponseState.SUCCESS)
 
-def validate_session(con:sqlite3.Connection, session_id:str):
+def validate_session(con:sqlite3.Connection, session_id:str) -> SimpleResponse:
 
     cur = con.cursor()
     session_query_result = cur.execute("SELECT * FROM Sessions WHERE session_id = ?", (session_id,)).fetchone()
 
     if session_query_result is None:
         print("Error: Session ID is invalid")
-        return False
+        return SimpleResponse(ResponseState.FAILURE, "SESSION_ID_INVALID")
 
     expiry_duration = int(dotenv_values(".env")["SESSION_EXPIRY_DURATION"])
     creation_datetime = datetime.fromisoformat(session_query_result[2])
@@ -77,17 +85,17 @@ def validate_session(con:sqlite3.Connection, session_id:str):
 
     if seconds_from_expiry > expiry_duration:
         print("Error: Session expired")
-        return False
+        return SimpleResponse(ResponseState.FAILURE, "SESSION_EXPIRED")
     
-    return True
+    return SimpleResponse(ResponseState.SUCCESS)
 
-def get_user_by_session_id(con:sqlite3.Connection, session_id:str):
+def get_user_by_session_id(con:sqlite3.Connection, session_id:str) -> SimpleResponse:
     cur = con.cursor()
     session_query_result = cur.execute("SELECT * FROM Sessions WHERE session_id = ?", (session_id,)).fetchone()
 
     if session_query_result is None:
         print("Error: Session ID is invalid")
-        return None
+        return SimpleResponse(ResponseState.FAILURE, "SESSION_ID_INVALID")
 
     expiry_duration = int(dotenv_values(".env")["SESSION_EXPIRY_DURATION"])
     creation_datetime = datetime.fromisoformat(session_query_result[2])
@@ -95,15 +103,19 @@ def get_user_by_session_id(con:sqlite3.Connection, session_id:str):
 
     if seconds_from_expiry > expiry_duration:
         print("Error: Session expired")
-        return None
+        return SimpleResponse(ResponseState.FAILURE, "SESSION_EXPIRED")
     
     user_id = session_query_result[1]
     
     user_query_result = cur.execute("SELECT * FROM Users WHERE user_id = ?", (user_id,)).fetchone()
-    return user_query_result
+
+    if user_query_result is None:
+        return SimpleResponse(ResponseState.FAILURE, "USER_DOES_NOT_EXIST")
+    
+    return SimpleResponse(ResponseState.SUCCESS, None, user_query_result)
 
 
-def get_hashed_info(secret:str):
+def get_hashed_info(secret:str) -> str:
     t2 = hashlib.sha512()
     password_hashkey = dotenv_values(".env")["SECRET_KEY"]
     t2.update(bytes(password_hashkey, 'utf-8'))
@@ -115,31 +127,33 @@ def get_hashed_info(secret:str):
     return t2.digest()
 
 
-def create_account(con:sqlite3.Connection, email:str, username:str, password:str, code:str):
+def create_account(con:sqlite3.Connection, email:str, username:str, password:str, code:str) -> SimpleResponse:
 
     cur = con.cursor()
     
-    if not validate_email(con, email, code):
-        return
+    if not (sr := validate_email(con, email, code)):
+        return sr
     
     username_query = cur.execute("SELECT * FROM Users WHERE username = ?",(username,))
     result = username_query.fetchone()
 
     if result is not None:
         print("Error: Username taken")
-        return
+        return SimpleResponse(ResponseState.FAILURE, "USERNAME_TAKEN")
     
     email_query = cur.execute("SELECT * FROM Users WHERE email = ?",(email,))
     result = email_query.fetchone()
 
     if result is not None:
         print("Error: Email taken")
-        return
+        return SimpleResponse(ResponseState.FAILURE, "EMAIL_TAKEN")
 
     hashed_password = get_hashed_info(password)
 
     cur.execute("INSERT OR IGNORE INTO Users VALUES(NULL, ?, ?, ?)", (username, hashed_password, email))
     con.commit()
+
+    return SimpleResponse(ResponseState.SUCCESS)
 
 def delete_expired_sessions(con:sqlite3.Connection):
 
@@ -164,7 +178,7 @@ def login_by_username(con:sqlite3.Connection, username:str, password:str):
 
     if user_query_result is None:
         print("Error: Username or Password is incorrect")
-        return
+        return SimpleResponse(ResponseState.FAILURE, "INVALID_CREDENTIALS")
     
     
     max_sessions = int(dotenv_values(".env")["MAX_SESSIONS"])
@@ -172,7 +186,7 @@ def login_by_username(con:sqlite3.Connection, username:str, password:str):
 
     if session_query_results is None:
         print("Error: Cannot fetch")
-        return
+        return SimpleResponse(ResponseState.FAILURE, "NO_CONCURRENT_SESSIONS")
     
     
     # Check if there are too many ongoing sessions
@@ -192,37 +206,38 @@ def login_by_username(con:sqlite3.Connection, username:str, password:str):
     cur.execute("INSERT INTO Sessions VALUES(?, ?, ?)", (session_id, int(user_query_result[0]), datetime.now()))
     con.commit()
 
-
-
-    return session_id
+    return SimpleResponse(ResponseState.SUCCESS, None, session_id)
 
 def logout_session(con:sqlite3.Connection, session_id:str):
     cur = con.cursor()
     cur.execute("DELETE FROM Sessions WHERE session_id = ?", (session_id,))
     con.commit()
+    return SimpleResponse(ResponseState.SUCCESS)
 
 def logout_all_sessions_by_userid(con:sqlite3.Connection, user_id:str):
     cur = con.cursor()
     cur.execute("DELETE FROM Sessions WHERE user_id = ?", (user_id,))
     con.commit()
+    return SimpleResponse(ResponseState.SUCCESS)
 
 def logout_all_sessions(con:sqlite3.Connection, session_id:str):
     cur = con.cursor()
     user_id = get_user_by_session_id(con, session_id)[0]
     logout_all_sessions_by_userid(con, user_id)
+    return SimpleResponse(ResponseState.SUCCESS)
 
 def reset_password(con:sqlite3.Connection, email:str, code:str):
     
     cur = con.cursor()
 
-    if not validate_email(con, email, code):
-        return
+    if not (sr := validate_email(con, email, code)):
+        return sr
     
     email_query_result = cur.execute("SELECT * FROM Users WHERE email = ?", (email,)).fetchone()
 
     if email_query_result is None:
         print("Error: Email has not been registered")
-        return
+        return SimpleResponse(ResponseState.FAILURE, "EMAIL_NOT_FOUND")
     
     new_password = generate_random_alphanum(6)
     hashed_new_password = get_hashed_info(new_password)
@@ -230,16 +245,16 @@ def reset_password(con:sqlite3.Connection, email:str, code:str):
     cur.execute("UPDATE OR IGNORE Users SET password = ? WHERE email = ?", (hashed_new_password, email))
     con.commit()
 
-    return new_password
+    return SimpleResponse(ResponseState.SUCCESS, None, new_password)
 
 def change_password(con:sqlite3.Connection, session_id:str, old_password:str, new_password:str):
 
     cur = con.cursor()
-    user = get_user_by_session_id(con, session_id)
-
-    if user is None:
-        return
     
+    if not (get_user := get_user_by_session_id(con, session_id)):
+        return get_user
+    
+    user = get_user.data
     user_id = user[0]
     
     hashed_password = get_hashed_info(old_password)
@@ -247,27 +262,32 @@ def change_password(con:sqlite3.Connection, session_id:str, old_password:str, ne
 
     if user_query_result is None:
         print("Error: Old Password does not match")
-        return
+        return SimpleResponse(ResponseState.FAILURE, "WRONG_OLD_PASSWORD")
     
     hashed_new_password = get_hashed_info(new_password)
 
     cur.execute("UPDATE OR IGNORE Users SET password = ? WHERE user_id = ?", (hashed_new_password, user_id))
     con.commit()
 
+    return SimpleResponse(ResponseState.SUCCESS)
+
 def renew_session(con:sqlite3.Connection, session_id:str):
 
     cur = con.cursor()
 
-    if not validate_session(con, session_id):
-        return
+    if not (sr := validate_session(con, session_id)):
+        return sr
 
     cur.execute("UPDATE OR IGNORE Sessions SET start_time = ? WHERE session_id = ?", (datetime.now(), session_id))
     con.commit()
+
+    return SimpleResponse(ResponseState.SUCCESS)
 
 def log_session_data(con:sqlite3.Connection, session_id:str, ip_addr:str, user_agent:str):
     cur = con.cursor()
     cur.execute("INSERT OR REPLACE INTO SessionData VALUES(?, ?, ?)", (session_id, ip_addr, user_agent))
     con.commit()
+    
 
     
         

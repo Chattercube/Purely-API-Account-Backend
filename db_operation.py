@@ -109,7 +109,7 @@ def user_operation(con:sqlite3.Connection, session_id:str, operation_code:str, d
                 print("Error: Invalid data")
                 return
             
-            user = db_accounts.get_user_by_session_id(con, session_id)
+            user = db_accounts.get_user_by_session_id(con, session_id).data
             user_id = user[0]
             cur.execute("UPDATE OR IGNORE UserData SET data = json_set(data, '$.status', ?) WHERE user_id = ?", (data['content'], user[0]))
             con.commit()
@@ -119,7 +119,7 @@ def user_operation(con:sqlite3.Connection, session_id:str, operation_code:str, d
                 print("Error: Invalid data")
                 return
             
-            user = db_accounts.get_user_by_session_id(con, session_id)
+            user = db_accounts.get_user_by_session_id(con, session_id).data
             user_id = user[0]
             cur.execute("UPDATE OR IGNORE UserData SET data = json_set(data, '$.blurb', ?) WHERE user_id = ?", (data['content'], user[0]))
             con.commit()
@@ -129,7 +129,7 @@ def user_operation(con:sqlite3.Connection, session_id:str, operation_code:str, d
                 print("Error: Invalid data")
                 return
             
-            user = db_accounts.get_user_by_session_id(con, session_id)
+            user = db_accounts.get_user_by_session_id(con, session_id).data
             user_id = user[0]
             cur.execute("UPDATE OR IGNORE UserData SET data = json_set(data, '$.blurb', ?) WHERE user_id = ?", (data['content'], user[0]))
             con.commit()
