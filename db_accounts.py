@@ -10,80 +10,20 @@ import uuid
 # Store data in hex_bytes or bytes
 HEX_BYTES = False
 
+ACCOUNT_TEMPLATE_PATH = "json_templates/create_accounts_tables.sql"
+USER_TEMPLATE_PATH = "json_templates/create_user_tables.sql"
+
 def create_database(filename:str):
-
-    # if(exists(filename)):
-    #     print("Existing db!")
-    #     return
-
+    
     con = sqlite3.connect(filename)
     cur = con.cursor()
 
-    try:
-        cur.execute(
-        """
-        CREATE TABLE OR IGNORE Users (
-            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username VARCHAR(50) NOT NULL,
-            password VARCHAR(100) NOT NULL,
-            email VARCHAR(100) NOT NULL
-        );
-        """)
-    except:
-        pass
-    
-    try:
-        cur.execute(
-        """
-        CREATE TABLE OR IGNORE Sessions (
-            session_id VARCHAR(50) PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            start_time DATETIME NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES Users(user_id)
-        );
-        """)
-    except:
-        pass
+    with open(ACCOUNT_TEMPLATE_PATH,"r") as script:
+        cur.execute(script)
 
-    try:
-        cur.execute(
-        """
-        CREATE TABLE OR IGNORE SessionData (
-            session_id VARCHAR(50) PRIMARY KEY,
-            ip_address VARCHAR(50) NOT NULL,
-            user_agent VARCHAR(255) NOT NULL,
-            FOREIGN KEY (session_id) REFERENCES Sessions(session_id)
-        );                        
-        """)
-    except:
-        pass
+    with open(USER_TEMPLATE_PATH,"r") as script:
+        cur.execute(script)
 
-    try:
-        cur.execute(
-        """
-        CREATE TABLE EmailVerify (
-            email VARCHAR(100) PRIMARY KEY,
-            code TEXT NOT NULL,
-            creation_time DATETIME NOT NULL
-        );   
-        """
-        )
-    except:
-        pass
-
-    try:
-        cur.execute(
-        """
-        CREATE TABLE UserData (
-            user_id INTEGER PRIMARY KEY,
-            data TEXT NOT NULL,
-            inventory TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES Users(user_id)
-        );   
-        """
-        )
-    except:
-        pass
 
 def generate_random_alphanum(length:int):
 

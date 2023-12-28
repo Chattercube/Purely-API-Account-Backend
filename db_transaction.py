@@ -3,23 +3,14 @@ import db_operation
 import db_accounts
 
 class ItemQuant:
-    id:str
-    quantity:int
     def __init__(self, id:str, quantity:int) -> None:
         self.id, self.quantity = id, quantity
 
 class DonationTransaction:
-    sender:str
-    recipient:str
-    sender_offer:list[ItemQuant]
     def __init__(self, sender:str, recipient:str, sender_offer:list[ItemQuant]) -> None:
         self.sender, self.recipient, self.sender_offer = sender, recipient, sender_offer
 
 class ExchangeTransaction:
-    sender:str
-    recipient:str
-    sender_offer:list[ItemQuant]
-    recipient_offer:list[ItemQuant]
     def __init__(self, sender:str, recipient:str, sender_offer:list[ItemQuant] , recipient_offer:list[ItemQuant]) -> None:
         self.sender, self.recipient, self.sender_offer, self.recipient_offer = sender, recipient, sender_offer,recipient_offer 
 
