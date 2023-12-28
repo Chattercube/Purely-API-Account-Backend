@@ -10,8 +10,8 @@ import db_accounts
 
 import json
 
-DATA_TEMPLATE = json.load(open("userdata_data_template.json","r"))
-INVENTORY_TEMPLATE = json.load(open("userdata_inventory_template.json","r"))
+DATA_TEMPLATE = json.load(open("json_templates/userdata_data_template.json","r"))
+INVENTORY_TEMPLATE = json.load(open("json_templates/userdata_inventory_template.json","r"))
 
 
 

@@ -10,11 +10,11 @@ import uuid
 # Store data in hex_bytes or bytes
 HEX_BYTES = False
 
-ACCOUNT_TEMPLATE_PATH = "json_templates/create_accounts_tables.sql"
-USER_TEMPLATE_PATH = "json_templates/create_user_tables.sql"
+ACCOUNT_TEMPLATE_PATH = "sql_scripts/create_accounts_tables.sql"
+USER_TEMPLATE_PATH = "sql_scripts/create_user_tables.sql"
 
 def create_database(filename:str):
-    
+
     con = sqlite3.connect(filename)
     cur = con.cursor()
 
