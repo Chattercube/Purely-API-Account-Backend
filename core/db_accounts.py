@@ -290,7 +290,11 @@ def renew_session(con:sqlite3.Connection, session_id:str):
 
     return SimpleResponse(ResponseState.SUCCESS)
 
-def log_session_data(con:sqlite3.Connection, session_id:str, ip_addr:str, user_agent:str):
+def log_session_data(con:sqlite3.Connection, session_id:str, ip_addr:str, user_agent:str, hex:bool = False):
+
+    if hex:
+        session_id = bytes.fromhex(session_id)
+        
     cur = con.cursor()
     cur.execute("INSERT OR REPLACE INTO SessionData VALUES(?, ?, ?)", (session_id, ip_addr, user_agent))
     con.commit()

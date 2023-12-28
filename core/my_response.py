@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class ResponseState(Enum):
+class ResponseState(int, Enum):
     SUCCESS = 0
     WARNING = 1
     FAILURE = 2
@@ -14,3 +14,4 @@ class SimpleResponse:
 
     def __nonzero__(self):
         return self.state == ResponseState.SUCCESS
+    

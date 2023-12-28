@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+</head>
+
+<body>
+
+    <h2>Login</h2>
+
+    <form id="logininfo">
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" name="username"></input>
+        </div>
+        <div>
+            <label for="username">Password:</label>
+            <input type="password" name="password"></input>
+        </div>
+        <input type="submit" value="Submit" />
+    </form>
+    <span id="msg_area"> Please Login </span>
+
+
+</body>
+<script>
+
+    function setCookie(cname, cvalue, exdays) {
+        const d = new Date();
+        d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+        let expires = "expires=" + d.toUTCString();
+        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    }
+
+    function changeText(data) {
+        msg_area = document.querySelector("#msg_area");
+
+        if (data.state == 2) {
+            msg_area.innerHTML = "Error: " + data.content;
+        } else if (data.state == 0) {
+            msg_area.innerHTML = "Login successful, session created"
+        }
+
+    }
+    const form = document.querySelector("#logininfo");
+    async function sendData() {
+        const formData = new FormData(form);
+        try {
+
+            address = "http://" + window.location.host + "/login";
+            const response = await fetch(address,
+                {
+                    method: "POST",
+                    mode: "cors",
+                    body: JSON.stringify(Object.fromEntries(formData)),
+                    headers:
+                    {
+                        'Content-Type': 'application/json',
+                        "Access-Control-Request-Method": "POST"
+                    },
+                    credentials: 'include'
+                });
+
+            // console.log(await response.json());
+            sr = await response.json()
+            changeText(sr)
+    
+            if (sr.state == 0) {
+                await setCookie("session_id", sr.data, 1)
+            }
+
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Take over form submission
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        sendData();
+    });
+
+</script>
+
+</html>

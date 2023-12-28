@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, render_template
 import json
 import sqlite3
 import core.db_accounts as db_accounts
@@ -6,9 +6,19 @@ import core.db_operation as db_operation
 import core.db_transaction as db_transaction
 from core.db_transaction import DonationTransaction, ItemQuant, ExchangeTransaction
 from core.my_response import ResponseState, SimpleResponse
+import time, threading
+import os
+
+
 
 DB_PATH = "main.sqlite"
-CON:sqlite3.Connection
+
+def cleanup():
+    # db_accounts.delete_expired_email_verify(CON)
+    # db_accounts.delete_expired_sessions(CON)
+    # threading.Timer(60, cleanup).start()
+    pass
+
 
 app = Flask(__name__)
 
@@ -31,12 +41,12 @@ def register():
     data = request.get_json()
 
     if not all( field in data for field in ('email', 'username', 'password', 'code')):
-        return "Invalid data", 400
+        return json.dumps(SimpleResponse(ResponseState.FAILURE, "INVALID_DATA").__dict__), 400
     
     sr = db_accounts.create_account(CON, data['email'], data['username'], data['password'], data['code'])
 
     if sr.state != ResponseState.SUCCESS:
-        return sr.content, 400
+        return json.dumps(sr.__dict__), 400
     
     return "Account created", 201
 
@@ -53,16 +63,20 @@ def login():
     data = request.get_json()
 
     if not all( field in data for field in ('username', 'password')):
-        return "Invalid data", 400
+        return json.dumps(SimpleResponse(ResponseState.FAILURE, "INVALID_DATA").__dict__), 400
     
     sr = db_accounts.login_by_username(CON, data['username'], data['password'], True)
 
     if sr.state != ResponseState.SUCCESS:
-        return sr.content, 400
+        return json.dumps(sr.__dict__), 400
 
     db_accounts.log_session_data(CON, sr.data, request.remote_addr, request.user_agent.string)
     
-    return sr.data, 200
+    return json.dumps(sr.__dict__), 200
+
+@app.route('/login', methods=['GET'])
+def login_page():
+    return open("webpage/login_page.html").read(), 200
 
 @app.route('/profile', methods=['POST'])
 def profile():
@@ -72,18 +86,16 @@ def profile():
         }
     """
     data = request.get_json()
-    print(data)
 
     if not all( field in data for field in ('session_id',)):
-        return "Invalid data", 400
+        return json.dumps(SimpleResponse(ResponseState.FAILURE, "INVALID_DATA").__dict__), 400
     
     if not (sr := db_accounts.get_user_by_session_id(CON, data['session_id'], True)):
-        return sr.content, 400
+        return json.dumps(sr.__dict__), 400
     
-    print(sr.data)
     user = sr.data
 
-    return "Welcome, " + user[1] + "!", 200
+    return json.dumps(sr.__dict__), 200
 
 @app.route('/email_code', methods=['POST'])
 def email_code():
@@ -94,19 +106,21 @@ def email_code():
     """
 
     data = request.get_json(force=True)
-    print(data['email'])
 
     if not all( field in data for field in ('email',)):
-        return "Invalid data", 400
+        return json.dumps(SimpleResponse(ResponseState.FAILURE, "INVALID_DATA").__dict__), 400
     
     if not (sr := db_accounts.generate_email_code(CON, data['email'])):
-        return sr.content, 400
+        return json.dumps(sr.__dict__), 400
     
-    return "Verification Code Sent", 200
+    return json.dumps(sr.__dict__), 200
 
 
 
 if __name__ == "__main__":
-    DB_PATH = "main.sqlite"
     CON = sqlite3.connect(DB_PATH, check_same_thread=False)
+    cleanup()
     app.run(debug=True)
+
+
+    
